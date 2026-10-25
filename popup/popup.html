@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DarkPattern Defuser</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <div class="logo-icon">🛡️</div>
+        <div>
+          <h1 class="brand-title">DarkPattern Defuser</h1>
+          <span class="brand-sub">Real-Time Anti-Deception Shield</span>
+        </div>
+      </div>
+      <span class="status-badge" id="shield-status">Shield Active</span>
+    </header>
+
+    <!-- Current Site Status -->
+    <section class="current-site-card" id="current-site-card">
+      <div class="card-header">
+        <span class="site-label" id="current-domain">Inspecting Page...</span>
+        <span class="site-pill" id="site-pattern-pill">0 Traps</span>
+      </div>
+      <div id="page-traps-list" class="page-traps-list">
+        <div class="clean-state" id="clean-state">
+          ✓ No deceptive timers, fake viewers, or sneaky add-ons detected on this page.
+        </div>
+      </div>
+    </section>
+
+    <!-- Lifetime Consumer Protection Stats -->
+    <section class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-number" id="stat-defused">0</span>
+        <span class="stat-label">Traps Defused</span>
+      </div>
+      <div class="stat-card timer-stat">
+        <span class="stat-number" id="stat-timers">0</span>
+        <span class="stat-label">Fake Timers</span>
+      </div>
+      <div class="stat-card savings-stat">
+        <span class="stat-number" id="stat-savings">$0.00</span>
+        <span class="stat-label">Money Saved</span>
+      </div>
+    </section>
+
+    <!-- Protection Toggles -->
+    <section class="toggles-section">
+      <h2 class="section-title">Active Defusers</h2>
+      <div class="toggle-row">
+        <span class="toggle-text">Freeze Fake Countdown Timers</span>
+        <input type="checkbox" id="toggle-timers" class="toggle-checkbox" checked>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-text">Mute Fake Viewers & Social Proof</span>
+        <input type="checkbox" id="toggle-scarcity" class="toggle-checkbox" checked>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-text">Auto-Uncheck Sneaky Add-ons</span>
+        <input type="checkbox" id="toggle-addons" class="toggle-checkbox" checked>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-text">Neutralize Confirmshaming</span>
+        <input type="checkbox" id="toggle-shaming" class="toggle-checkbox" checked>
+      </div>
+    </section>
+
+    <!-- Recent Neutralized Domains -->
+    <section class="recent-section">
+      <div class="recent-header">
+        <h2 class="section-title">Recent Defused Sites</h2>
+        <button id="clear-btn" class="btn-text">Clear</button>
+      </div>
+      <div id="history-list" class="history-list">
+        <div class="empty-state">No dark patterns recorded yet.</div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span class="privacy-note">🔒 100% Client-Side. Zero Telemetry.</span>
+      <span class="version-tag">v1.0.0</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
