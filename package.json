@@ -1,0 +1,19 @@
+{
+  "name": "darkpattern-defuser",
+  "version": "1.0.0",
+  "description": "Real-time anti-deception shield detecting and defusing fake countdown timers, synthetic scarcity, sneak-into-cart add-ons, and subscription traps.",
+  "main": "background/service-worker.js",
+  "scripts": {
+    "test": "node test/defuser.test.js"
+  },
+  "keywords": [
+    "chrome-extension",
+    "edge-addon",
+    "dark-patterns",
+    "anti-deception",
+    "ecommerce",
+    "privacy"
+  ],
+  "author": "Coder-0X",
+  "license": "MIT"
+}

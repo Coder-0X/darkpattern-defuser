@@ -18,6 +18,24 @@
   let scanDebounceTimer = null;
   let observedTimers = new Map();
 
+  let activeSettings = {
+    defuseTimers: true,
+    defuseScarcity: true,
+    defuseAddons: true,
+    defuseSubscriptions: true,
+    defuseShaming: true,
+    showHud: true
+  };
+
+  // Load user settings from local storage
+  try {
+    chrome.storage.local.get(['settings'], (res) => {
+      if (res && res.settings) {
+        activeSettings = { ...activeSettings, ...res.settings };
+      }
+    });
+  } catch (e) {}
+
   // Known 3rd-party fake urgency / social proof vendors
   const VENDOR_DOM_SIGNATURES = [
     'fera', 'nudgify', 'useproof', 'salespop', 'provely', 'beeketing',
@@ -30,9 +48,11 @@
     clockText: /\b\d{1,2}\s*(?:m|min|minutes)\s*\d{1,2}\s*(?:s|sec|seconds)\b/i,
     viewerText: /\b(\d{1,4})\s+(?:people|shoppers|others)\s+(?:are\s+)?(?:viewing|watching|looking\s+at)\b/i,
     stockScarcity: /\bonly\s+(\d{1,2})\s+(?:left|remaining|in\s+stock)\b/i,
+    cartUrgency: /\bin\s+(\d{1,4})\s+(?:people'?s\s+)?carts?\b/i,
+    cartUrgencyAlt: /\b(\d{1,4})\s+(?:people|shoppers)\s+have\s+this\s+in\s+(?:their\s+)?cart/i,
     recentBuyer: /\b[A-Z][a-z]+\s+from\s+[A-Z][a-z\s]+(?:just\s+purchased|bought)/i,
-    confirmshame: /\b(?:no[,\s]+(?:thanks[,\s]+)?i\s+(?:hate|prefer\s+paying|don't\s+care|don't\s+want)|i\s+hate\s+discounts)\b/i,
-    addonKeywords: /insurance|protection|warranty|priority\s+processing|carbon|tip|coverage|navidium|route/i,
+    confirmshame: /\b(?:no[,\s]+(?:thanks[,\s]+)?i\s+(?:hate|prefer\s+paying|don't\s+care|don't\s+want|like\s+paying\s+more)|i\s+hate\s+(?:saving|discounts|free\s+shipping))\b/i,
+    addonKeywords: /shipping\s+(?:protection|insurance)|package\s+protection|delivery\s+insurance|extended\s+warranty|vip\s+warranty|priority\s+processing|carbon\s+offset|leave\s+a\s+tip|navidium|route/i,
     priceExtractor: /(?:\+\s*|\(\s*)?\$(\d+(?:\.\d{2})?)/
   };
 
@@ -46,11 +66,16 @@
 
     candidates.forEach((el) => {
       if (el.dataset.dpDefused) return;
+      // Exclude media player playback times or progress bars
+      if (el.closest('video, audio, .video-player, .vjs-time-control, [class*="player"], [class*="progress"]')) return;
+
       const text = el.textContent.trim();
       const match = text.match(REGEX.timerText) || text.match(REGEX.clockText) || text.match(/\b\d{1,2}:\d{2}\b/);
 
       if (match) {
-        // Check if element has client-side timer behavior
+        // Exclude generic delivery estimates (e.g. "between 10:00 and 12:00")
+        if (/between|estimated\s+delivery/i.test(text)) return;
+
         const elKey = el.id || el.className || text.substring(0, 20);
         const prevText = observedTimers.get(elKey);
 
@@ -82,7 +107,7 @@
    * 2. DETECT SYNTHETIC SCARCITY & FAKE VIEWERS
    */
   function scanScarcity() {
-    // 1. Text-based viewer and stock warnings
+    // 1. Text-based viewer, cart, and stock warnings
     const walker = document.createTreeWalker(
       document.body,
       NodeFilter.SHOW_TEXT,
@@ -107,15 +132,22 @@
       const parent = textNode.parentElement;
       if (!parent || parent.dataset.dpDefused) return;
 
+      // Exclude genuine ratings and review feedback
+      if (/(?:rated|stars|reviews?|reviewed|found\s+this\s+helpful)/i.test(text)) return;
+
       const viewerMatch = text.match(REGEX.viewerText);
       const stockMatch = text.match(REGEX.stockScarcity);
+      const cartMatch = text.match(REGEX.cartUrgency) || text.match(REGEX.cartUrgencyAlt);
       const buyerMatch = text.match(REGEX.recentBuyer);
 
-      if (viewerMatch || stockMatch || buyerMatch) {
+      if (viewerMatch || stockMatch || cartMatch || buyerMatch) {
         parent.dataset.dpDefused = 'true';
         parent.classList.add('dp-scarcity-flagged');
 
-        const label = viewerMatch ? 'Synthetic Viewers' : stockMatch ? 'Synthetic Stock Scarcity' : 'Fake Social Proof Toast';
+        const label = viewerMatch ? 'Synthetic Viewers' : 
+                      cartMatch ? 'Synthetic Cart Urgency' : 
+                      stockMatch ? 'Synthetic Stock Scarcity' : 'Fake Social Proof Toast';
+
         const badge = document.createElement('span');
         badge.className = 'dp-pill-badge dp-scarcity-pill';
         badge.innerHTML = `👥 <strong>${label}:</strong> Unverified`;
@@ -162,6 +194,11 @@
       if (!container) return;
 
       const fullText = container.textContent.trim();
+
+      // Guard: strictly ignore legal, terms, GDPR, and privacy checkboxes
+      const isLegalOrPrivacy = /data\s+protection|privacy|terms|policy|consent|newsletter|marketing|gdpr|condition/i.test(fullText);
+      if (isLegalOrPrivacy) return;
+
       if (REGEX.addonKeywords.test(fullText)) {
         cb.dataset.dpDefused = 'true';
 
@@ -266,7 +303,7 @@
    * IN-PAGE FLOATING HUD (Modern persistent toast notification)
    */
   function renderOrUpdateHud() {
-    if (detectedPatterns.length === 0) return;
+    if (detectedPatterns.length === 0 || activeSettings.showHud === false) return;
 
     if (!hudContainer) {
       hudContainer = document.createElement('aside');
@@ -275,6 +312,8 @@
       hudContainer.setAttribute('aria-label', 'DarkPattern Defuser Status');
       document.body.appendChild(hudContainer);
     }
+
+    hudContainer.style.display = 'block';
 
     const count = detectedPatterns.length;
     const moneyStr = totalSavedMoney > 0 ? ` • <strong>Saved $${totalSavedMoney.toFixed(2)}</strong>` : '';
@@ -332,11 +371,11 @@
     isScanning = true;
 
     try {
-      scanTimers();
-      scanScarcity();
-      scanSneakIntoCart();
-      scanSubscriptionTraps();
-      scanConfirmshaming();
+      if (activeSettings.defuseTimers) scanTimers();
+      if (activeSettings.defuseScarcity) scanScarcity();
+      if (activeSettings.defuseAddons) scanSneakIntoCart();
+      if (activeSettings.defuseSubscriptions) scanSubscriptionTraps();
+      if (activeSettings.defuseShaming) scanConfirmshaming();
 
       if (detectedPatterns.length > 0) {
         renderOrUpdateHud();
@@ -383,7 +422,7 @@
 
   observer.observe(document.body, { childList: true, subtree: true });
 
-  // Listen for popup messages
+  // Listen for popup and background messages
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'GET_PAGE_PATTERNS') {
       sendResponse({
@@ -392,6 +431,13 @@
         patterns: detectedPatterns,
         moneySaved: totalSavedMoney
       });
+    } else if (message.type === 'SETTINGS_UPDATED') {
+      activeSettings = { ...activeSettings, ...message.payload };
+      if (!activeSettings.showHud && hudContainer) {
+        hudContainer.style.display = 'none';
+      }
+      scheduleScan();
+      sendResponse({ success: true });
     }
     return true;
   });

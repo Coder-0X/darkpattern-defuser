@@ -90,6 +90,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       } else if (message.type === 'UPDATE_SETTINGS') {
         await chrome.storage.local.set({ settings: message.payload });
+        // Broadcast settings update to all active web tabs
+        const tabs = await chrome.tabs.query({});
+        for (const tab of tabs) {
+          if (tab.id && tab.url && tab.url.startsWith('http')) {
+            chrome.tabs.sendMessage(tab.id, { type: 'SETTINGS_UPDATED', payload: message.payload }).catch(() => {});
+          }
+        }
         sendResponse({ success: true });
 
       } else if (message.type === 'CLEAR_HISTORY') {
